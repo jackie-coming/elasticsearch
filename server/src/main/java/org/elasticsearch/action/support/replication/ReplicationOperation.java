@@ -169,6 +169,7 @@ public class ReplicationOperation<
             assert maxSeqNoOfUpdatesOrDeletes != SequenceNumbers.UNASSIGNED_SEQ_NO : "seqno_of_updates still uninitialized";
             final PendingReplicationActions pendingReplicationActions = primary.getPendingReplicationActions();
             markUnavailableShardsAsStale(replicaRequest, replicationGroup);
+            // 并发写入 所有副本(in-sync set中的)
             performOnReplicas(replicaRequest, globalCheckpoint, maxSeqNoOfUpdatesOrDeletes, replicationGroup, pendingReplicationActions);
         }
         primaryResult.runPostReplicationActions(new ActionListener<>() {

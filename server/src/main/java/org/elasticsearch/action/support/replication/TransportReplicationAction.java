@@ -409,7 +409,8 @@ public abstract class TransportReplicationAction<
                     actualTerm
                 );
             }
-
+            // 注意：runWithPrimaryShardReference，该函数会在处理完主分片后
+            //开始处理分片副本，处理副本代码逻辑在(也就是说：ES写入是先写入主分片，再由主分片节点转发请求去写副分片，所以主分片一直是最新的，如果它转发失败了，则要求master删除那个节点)
             acquirePrimaryOperationPermit(
                 indexShard,
                 primaryRequest.getRequest(),
@@ -475,6 +476,7 @@ public abstract class TransportReplicationAction<
 
                         if (syncGlobalCheckpointAfterOperation) {
                             try {
+                                //调用maybeSyncTranslog 进行flush translog
                                 primaryShardReference.indexShard.maybeSyncGlobalCheckpoint("post-operation");
                             } catch (final Exception e) {
                                 // only log non-closed exceptions
@@ -1138,6 +1140,14 @@ public abstract class TransportReplicationAction<
                 });
             }
             assert indexShard.getActiveOperationsCount() != 0 : "must perform shard operation under a permit";
+            // 注意：
+            // 1、performOnPrimary会调用shardOperationOnPrimary注册监听器
+            // 当ReplicationOperation handlePrimaryResult完成时 会调用maybeSyncTranslog 进行flush translog
+            // 2、performOnPrimary doRun()会遍历BulkShardRequest中BulkItemRequest[]
+            //            TransportShardBulkAction performOnPrimary =>
+            // executeBulkItemRequest处理单个请求及异常
+            // 会根据BulkItemRequest的不同类型而进行不同的处理。
+            // 其实就是IndexRequest,DeleteRequest,UpdateRequest。
             shardOperationOnPrimary(request, indexShard, listener);
         }
 

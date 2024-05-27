@@ -65,7 +65,7 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
         request.mustIncRef();
         final var releaseRef = Releasables.releaseOnce(request::decRef);
         RequestFilterChain<Request, Response> requestFilterChain = new RequestFilterChain<>(this, logger, releaseRef);
-        requestFilterChain.proceed(task, actionName, request, ActionListener.runBefore(listener, releaseRef::close));
+            requestFilterChain.proceed(task, actionName, request, ActionListener.runBefore(listener, releaseRef::close));
     }
 
     protected abstract void doExecute(Task task, Request request, ActionListener<Response> listener);
@@ -90,9 +90,11 @@ public abstract class TransportAction<Request extends ActionRequest, Response ex
             int i = index.getAndIncrement();
             try {
                 if (i < this.action.filters.length) {
+                    //先执行fliter逻辑
                     this.action.filters[i].apply(task, actionName, request, listener, this);
                 } else if (i == this.action.filters.length) {
                     try (releaseRef) {
+                        //再执行TransportAction逻辑
                         this.action.doExecute(task, request, listener);
                     }
                 } else {

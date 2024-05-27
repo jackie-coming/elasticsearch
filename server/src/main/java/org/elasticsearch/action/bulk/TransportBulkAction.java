@@ -416,6 +416,7 @@ public class TransportBulkAction extends HandledTransportAction<BulkRequest, Bul
     ) {
         final AtomicArray<BulkItemResponse> responses = new AtomicArray<>(bulkRequest.requests.size());
         // Optimizing when there are no prerequisite actions
+        //索引数据
         if (indicesToAutoCreate.isEmpty() && dataStreamsToBeRolledOver.isEmpty()) {
             executeBulk(task, bulkRequest, startTime, listener, executor, responses, indicesThatCannotBeCreated);
             return;

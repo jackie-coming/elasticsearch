@@ -1137,6 +1137,7 @@ public class InternalEngine extends Engine {
         return localCheckpointTracker.generateSeqNo();
     }
 
+
     @Override
     public IndexResult index(Index index) throws IOException {
         assert Objects.equals(index.uid().field(), IdFieldMapper.NAME) : index.uid().field();
@@ -1175,6 +1176,13 @@ public class InternalEngine extends Engine {
                  *  if A arrives on the shard first we use addDocument since maxUnsafeAutoIdTimestamp is < 10. A` will then just be skipped
                  *  or calls updateDocument.
                  */
+                // 检查版本号是否冲突等
+                // 1、尝试从versionMap中读取待写入文档的version，也即从内存中读取。
+                // versionMap会暂存还没有commit到磁盘的文档版本信息。
+                // 具体逻辑在：InternalEngine getVersionFromMap中
+                // 2、如果第1步中没有读到，则从index中读取，也即从文件中读取。
+                // 具体逻辑在VersionsAndSeqNoResolver loadDocIdAndVersion中（loadDocIdAndVersion是Lucene的方法）
+                // 注意：这里不会get整个文档，而是只会获取文档的版本号做对比。
                 final IndexingStrategy plan = indexingStrategyForOperation(index);
                 reservedDocs = plan.reservedDocs;
 
@@ -1469,7 +1477,7 @@ public class InternalEngine extends Engine {
         return mayHaveBeenIndexBefore;
     }
 
-    private void addDocs(final List<LuceneDocument> docs, final IndexWriter indexWriter) throws IOException {
+    private void  addDocs(final List<LuceneDocument> docs, final IndexWriter indexWriter) throws IOException {
         if (docs.size() > 1) {
             indexWriter.addDocuments(docs);
         } else {
