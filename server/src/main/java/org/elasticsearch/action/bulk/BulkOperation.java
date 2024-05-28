@@ -289,6 +289,7 @@ final class BulkOperation extends ActionRunnable<BulkResponse> {
 
         String nodeId = clusterService.localNode().getId();
         try (RefCountingRunnable bulkItemRequestCompleteRefCount = new RefCountingRunnable(onRequestsCompleted)) {
+            //合并同一个主分片的请求之后，发送到主分片节点
             for (Map.Entry<ShardId, List<BulkItemRequest>> entry : requestsByShard.entrySet()) {
                 final ShardId shardId = entry.getKey();
                 final List<BulkItemRequest> requests = entry.getValue();

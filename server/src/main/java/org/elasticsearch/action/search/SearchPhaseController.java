@@ -357,6 +357,8 @@ public final class SearchPhaseController {
      * Expects sortedDocs to have top search docs across all shards, optionally followed by top suggest docs for each named
      * completion suggestion ordered by suggestion name
      */
+    // 主要判断是否启用字段折叠（field collapsing），根据需要实现字段折叠，
+    // 如果没有实现，直接返回给客户端。
     public static SearchResponseSections merge(
         boolean ignoreFrom,
         ReducedQueryPhase reducedQueryPhase,

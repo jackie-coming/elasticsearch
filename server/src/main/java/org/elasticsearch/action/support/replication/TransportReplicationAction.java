@@ -409,8 +409,8 @@ public abstract class TransportReplicationAction<
                     actualTerm
                 );
             }
-            // 注意：runWithPrimaryShardReference，该函数会在处理完主分片后
-            //开始处理分片副本，处理副本代码逻辑在(也就是说：ES写入是先写入主分片，再由主分片节点转发请求去写副分片，所以主分片一直是最新的，如果它转发失败了，则要求master删除那个节点)
+            // 注意：runWithPrimaryShardReference，该函数会在处理完主分片后，开始处理分片副本
+            //处理副本代码逻辑在(也就是说：ES写入是先写入主分片，再由主分片节点转发请求去写副分片，所以主分片一直是最新的，如果它转发失败了，则要求master删除那个节点)
             acquirePrimaryOperationPermit(
                 indexShard,
                 primaryRequest.getRequest(),
@@ -436,6 +436,7 @@ public abstract class TransportReplicationAction<
                 }
 
                 if (primaryShardReference.isRelocated()) {
+                    //主分片所在的节点重定向中？ 转发到新节点
                     primaryShardReference.close(); // release shard operation lock as soon as possible
                     setPhase(replicationTask, "primary_delegation");
                     // delegate primary phase to relocation target
@@ -469,6 +470,7 @@ public abstract class TransportReplicationAction<
                         }
                     );
                 } else {
+                    //主分片所在节点正常
                     setPhase(replicationTask, "primary");
 
                     final ActionListener<Response> responseListener = ActionListener.wrap(response -> {
@@ -476,7 +478,7 @@ public abstract class TransportReplicationAction<
 
                         if (syncGlobalCheckpointAfterOperation) {
                             try {
-                                //调用maybeSyncTranslog 进行flush translog
+                                //主分片写入lucene之后，回调 translog flush
                                 primaryShardReference.indexShard.maybeSyncGlobalCheckpoint("post-operation");
                             } catch (final Exception e) {
                                 // only log non-closed exceptions
@@ -877,8 +879,10 @@ public abstract class TransportReplicationAction<
                 }
                 final DiscoveryNode node = state.nodes().get(primary.currentNodeId());
                 if (primary.currentNodeId().equals(state.nodes().getLocalNodeId())) {
+                    // 是当前节点，继续执行
                     performLocalAction(state, primary, node, indexMetadata);
                 } else {
+                    // 不是当前节点，转发到对应的node上进行处理
                     performRemoteAction(state, primary, node);
                 }
             }
@@ -1140,14 +1144,7 @@ public abstract class TransportReplicationAction<
                 });
             }
             assert indexShard.getActiveOperationsCount() != 0 : "must perform shard operation under a permit";
-            // 注意：
-            // 1、performOnPrimary会调用shardOperationOnPrimary注册监听器
-            // 当ReplicationOperation handlePrimaryResult完成时 会调用maybeSyncTranslog 进行flush translog
-            // 2、performOnPrimary doRun()会遍历BulkShardRequest中BulkItemRequest[]
-            //            TransportShardBulkAction performOnPrimary =>
-            // executeBulkItemRequest处理单个请求及异常
-            // 会根据BulkItemRequest的不同类型而进行不同的处理。
-            // 其实就是IndexRequest,DeleteRequest,UpdateRequest。
+
             shardOperationOnPrimary(request, indexShard, listener);
         }
 

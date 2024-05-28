@@ -388,6 +388,7 @@ public class TransportBulkAction extends HandledTransportAction<BulkRequest, Bul
             : Set.of();
 
         // Step 4: create all the indices that are missing, if there are any missing. start the bulk after all the creates come back.
+        // 如果bulk操作的所有索引都不需要创建索引,则直接执行批量请求,否则会先创建索引
         createMissingIndicesAndIndexData(
             task,
             bulkRequest,

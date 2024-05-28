@@ -225,6 +225,8 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
     }
 
     @Override
+    //SearchQueryThenFetchAsyncAction,在SearchQueryThenFetchAsyncAction中没有重写run()，
+    // 所以真正执行的还是父类AbstractSearchAsyncAction中的run()
     public final void run() {
         for (final SearchShardIterator iterator : toSkipShardsIts) {
             assert iterator.skip();
@@ -241,6 +243,8 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
                     );
                 }
             }
+            // 遍历所有的分片，然后执行:
+            // 如果列表中有N个shard位于同一个节点，则向其发送N个请求，并不会把请求合并成一个。
             for (int i = 0; i < shardsIts.size(); i++) {
                 final SearchShardIterator shardRoutings = shardsIts.get(i);
                 assert shardRoutings.skip() == false;
@@ -613,6 +617,7 @@ abstract class AbstractSearchAsyncAction<Result extends SearchPhaseResult> exten
             remainingOpsOnIterator = shardsIt.remaining() + 1;
         }
         final int xTotalOps = totalOps.addAndGet(remainingOpsOnIterator);
+        // 检查是否收到全部回复
         if (xTotalOps == expectedTotalOps) {
             onPhaseDone();
         } else if (xTotalOps > expectedTotalOps) {

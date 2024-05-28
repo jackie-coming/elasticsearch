@@ -89,6 +89,7 @@ class SearchQueryThenFetchAsyncAction extends AbstractSearchAsyncAction<SearchPh
         final SearchActionListener<SearchPhaseResult> listener
     ) {
         ShardSearchRequest request = rewriteShardSearchRequest(super.buildShardSearchRequest(shardIt, listener.requestIndex));
+        //通过SearchTransportService的sendChildRequest方法向具体的分片发送Query阶段的子任务进行异步处理。
         getSearchTransport().sendExecuteQuery(getConnection(shard.getClusterAlias(), shard.getNodeId()), request, getTask(), listener);
     }
 

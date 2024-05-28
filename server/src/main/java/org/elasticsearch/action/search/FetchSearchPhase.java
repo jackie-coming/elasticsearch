@@ -128,6 +128,8 @@ final class FetchSearchPhase extends SearchPhase {
                     () -> moveToNextPhase(reducedQueryPhase, fetchResults.getAtomicArray()),
                     context
                 );
+                // 从查询阶段的shard列表中遍历，跳过查询结果为空的shard，
+                // 对特定目标shard执行executeFetch方法来获取数据，其中包括分页信息。
                 for (int i = 0; i < docIdsToLoad.length; i++) {
                     List<Integer> entry = docIdsToLoad[i];
                     SearchPhaseResult queryResult = queryResults.get(i);
@@ -155,7 +157,9 @@ final class FetchSearchPhase extends SearchPhase {
             : "phaseResults empty [" + phaseResults.isEmpty() + "], single result: " + phaseResults.get(0).fetchResult();
         return true;
     }
-
+    // executeFetch的参数querySearchResult包含分页信息，
+    // 同时定义了Listener，每成功获取一个shard数据之后就执行counter.onResult，
+    // 其中调用对结果的处理回调(final CountedCollector<FetchSearchResult> counter)，把结果保存到数组中，然后执行countDown。
     private void executeFetch(
         SearchPhaseResult queryResult,
         final CountedCollector<FetchSearchResult> counter,

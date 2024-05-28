@@ -348,7 +348,7 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
             if (ccsCheckCompatibility) {
                 checkCCSVersionCompatibility(rewritten);
             }
-
+            //判断是local请求还是remote请求
             if (resolvedIndices.getRemoteClusterIndices().isEmpty()) {
                 executeLocalSearch(
                     task,
@@ -361,6 +361,7 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
                 );
             } else {
                 final TaskId parentTaskId = task.taskInfo(clusterService.localNode().getId(), false).taskId();
+                //区别在于远程集群这一步是返回搜索结果还是索引和分片信息（本地集群需要再对分片粒度做search）
                 if (shouldMinimizeRoundtrips(rewritten)) {
                     final AggregationReduceContext.Builder aggregationReduceContextBuilder = rewritten.source() != null
                         && rewritten.source().aggregations() != null
@@ -700,6 +701,8 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
         TransportService transportService,
         ActionListener<Map<String, SearchShardsResponse>> listener
     ) {
+        //针对每个集群将搜索请求发送出去，
+        // 目标集群TransportSearchAction收到请求调用doExecute方法处理
         RemoteClusterService remoteClusterService = transportService.getRemoteClusterService();
         final CountDown responsesCountDown = new CountDown(remoteIndicesByCluster.size());
         final Map<String, SearchShardsResponse> searchShardsResponses = new ConcurrentHashMap<>();
@@ -1340,6 +1343,7 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
                     exc -> searchTransportService.cancelSearchTask(task, "failed to merge result [" + exc.getMessage() + "]")
                 );
                 if (searchRequest.searchType() == DFS_QUERY_THEN_FETCH) {
+                    // 与 “Query Then Fetch” 相同，除了初始分散阶段，该阶段计算分布式term频率以获得更准确的评分。
                     return new SearchDfsQueryThenFetchAsyncAction(
                         logger,
                         namedWriteableRegistry,
@@ -1358,6 +1362,10 @@ public class TransportSearchAction extends HandledTransportAction<SearchRequest,
                         clusters
                     );
                 } else {
+                    // 请求分两个阶段处理。 在第一阶段，查询被转发到所有涉及的分片。 每个分片执行搜索并生成对该分片本地的结果的排序列表。
+                    // 每个分片只向协调节点返回足够的信息，以允许其合并并将分片级结果重新排序为全局排序的最大长度大小的结果集。
+                    // 在第二阶段期间，协调节点仅从相关分片请求文档内容（以及高亮显示的片段，如果有的话）。
+                    // 如果您未在请求中指定 search_type，那么这是默认设置。
                     assert searchRequest.searchType() == QUERY_THEN_FETCH : searchRequest.searchType();
                     return new SearchQueryThenFetchAsyncAction(
                         logger,

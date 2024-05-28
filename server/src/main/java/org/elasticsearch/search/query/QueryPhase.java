@@ -118,6 +118,8 @@ public class QueryPhase {
         querySearchResult.nodeQueueSize(nodeQueueSize);
     }
 
+    //queryPhase.execute(SearchContext searchContext)是核心查询，其中调用Lucene实现检索，同时实现聚合。
+    //=> 先在shard层面调用Lucene来聚合，然后汇聚到协调节点再进行全局聚合,类似全局排序:
     static void executeQuery(SearchContext searchContext) throws QueryPhaseExecutionException {
         if (searchContext.hasOnlySuggest()) {
             SuggestPhase.execute(searchContext);
@@ -137,13 +139,15 @@ public class QueryPhase {
         // request, preProcess is called on the DFS phase, this is why we pre-process them
         // here to make sure it happens during the QUERY phase
         AggregationPhase.preProcess(searchContext);
-
+        //添加收集器和执行搜索操作
         addCollectorsAndSearch(searchContext);
-
+        // 全文检索且需要打分
         RescorePhase.execute(searchContext);
+        // 自动补全及纠错
         SuggestPhase.execute(searchContext);
 
         if (searchContext.getProfilers() != null) {
+            //如果启用了查询分析器，则将查询分析器的结果添加到查询结果中
             searchContext.queryResult().profileResults(searchContext.getProfilers().buildQueryPhaseResults());
         }
     }
